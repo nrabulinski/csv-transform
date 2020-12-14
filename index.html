@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+	select {
+		width: 500px;
+	}
+
+	select[multiple] {
+		height: 400px;
+	}
+
+        * {
+            margin: 10px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/gh/mholt/PapaParse/papaparse.js"></script>
+</head>
+<body>
+    <label for="plik">Plik .csv wyeksportowany z Excela:</label>
+    <input type="file" name="plik" id="plik"><br>
+    <label for="header">Wiersz z nagłówkiem:</label>
+    <select name="header" id="header" required>
+        <option value="">Wybierz linię zawierającą header</option>
+    </select><br>
+    <select name="attrs" id="attrs" multiple></select><br>
+    <button id="run">Pobierz nowy CSV</button>
+    <script>
+        const file = document.getElementById('plik');
+        const select = document.getElementById('header');
+        const attrs = document.getElementById('attrs');
+        const btn = document.getElementById('run');
+        let fileContent;
+        let header = -1;
+        let headerLen = 0;
+        file.addEventListener('change', async () => {
+            for (const child of [...select.options].slice(1))
+                select.removeChild(child);
+            const result = await new Promise(res => Papa.parse(file.files[0], {
+                complete: res
+            }));
+            fileContent = result.data;
+            fileContent.slice(0, 3).forEach((line, idx) => {
+                const opt = document.createElement('option');
+                select.appendChild(opt);
+                opt.value = idx;
+                opt.innerText = line.join(' | ');
+            });
+        });
+        select.addEventListener('change', () => {
+            for (const child of [...attrs.options])
+                attrs.removeChild(child);
+            header = parseInt(select.value);
+            fileContent[header].forEach((attr, i) => {
+                const opt = document.createElement('option');
+                attrs.appendChild(opt);
+                opt.value = i;
+                opt.innerText = attr;
+            })
+        });
+        btn.addEventListener('click', () => {
+            const a = [...attrs.selectedOptions].map(opt => parseInt(opt.value));
+            const blob = new Blob(
+                [Papa.unparse(fileContent.slice(header).map(line => line.filter((_, idx) => a.includes(idx))))],
+                { type: 'text/csv' }
+            );
+            const url = URL.createObjectURL(blob);
+            const e = document.createElement('a');
+            document.body.appendChild(e);
+            e.href = url;
+            e.download = 'filtered.csv';
+            e.click();
+            document.body.removeChild(e);
+            URL.revokeObjectURL(url);
+        })
+    </script>
+</body>
+</html>
